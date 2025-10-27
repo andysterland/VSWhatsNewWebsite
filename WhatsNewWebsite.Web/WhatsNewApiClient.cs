@@ -6,7 +6,7 @@ namespace WhatsNewWebsite.Web
     {
         public async Task<List<WhatsNewItemSummary>> GetAllSummaries()
         {
-            var url = "whatsnewitem/";
+            var url = "https://localhost:7433/whatsnewitem/";
             return await GetSummaries(url);
         }
         public async Task<WhatsNewItemSummary> GetSummaryById(string Id)
