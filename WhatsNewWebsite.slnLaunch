@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "Launch",
+    "Projects": [
+      {
+        "Path": "WhatsNewWebsite.ApiService\\WhatsNewWebsite.ApiService.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "WhatsNewWebsite.Web\\WhatsNewWebsite.Web.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]
