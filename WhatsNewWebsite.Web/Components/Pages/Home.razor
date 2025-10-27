@@ -1,0 +1,213 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@using Markdig
+@using Microsoft.AspNetCore.WebUtilities
+@inject WhatsNewApiClient _whatsNewApiClient;
+@inject NavigationManager NavManager
+
+<PageTitle>@this.Title</PageTitle>
+
+@{
+    if (SelectedItem != null)
+    {
+        <div id="overlay" class="details-overlay"></div>
+    }
+}
+<div class="px-3">
+        <div class="hero-content">
+            <h1 class="text-center text-white p-4">@this.Title</h1>
+            <div class="w-100 d-flex justify-content-center">
+                <div class="form-group has-search">
+                    <span class="fa fa-search form-control-feedback"></span>
+                    <input type="text" value=@SearchText @oninput=@(e => SearchText_OnChange(e)) class="form-control w-100 search-box" placeholder="Search"></input>
+                </div>
+
+                <div class="form-group has-search filter-box">
+                    <span class="fa fa-search form-control-feedback"></span>
+                    <select @onchange="FilterByVersion" class="form-control">
+                        <option value="">All Version</option>
+                        @foreach (var version in versions)
+                        {
+                            <option value="@version">Visual Studio @version</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+
+    @{
+        if (ItemSummaries == null)
+        {
+            <div class="justify-content-center container">
+                <div class="alert alert-secondary d-flex align-items-center m-4" role="alert">
+                    <div>
+                        <div class="spinner-border" role="status"></div>
+                        <span class="sr-only">Loading...</span>
+                    </div>
+
+                    <div class="m-4" />
+                </div>
+            </div>
+        }
+        else if (ItemSummaries.Count == 0)
+        {
+            <div class="justify-content-center container">
+                <div class="alert alert-secondary d-flex align-items-center m-4" role="alert">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-exclamation-triangle-fill flex-shrink-0 me-2" viewBox="0 0 16 16" role="img" aria-label="Warning:">
+                        <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z" />
+                    </svg>
+                    <div>
+                        Sorry, looks like we've got nothing...
+                    </div>
+                </div>
+
+                <div class="m-4" />
+            </div>
+        }
+        else
+        {
+            <div class="summary-card-container justify-content-center d-flex flex-wrap">
+                @foreach (var itemSummary in ItemSummaries)
+                {
+                    <div @onclick="@(() => NavigateDetails(itemSummary))">
+                        <SummaryCard ItemSummary="@itemSummary"></SummaryCard>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@{
+    if (SelectedItem != null)
+    {
+        <div class="modal fade show d-block text-light" id="detailsModal" tabindex="-1" role="dialog">
+            <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title text-light" id="exampleModalLongTitle">@SelectedItem.Title</h5>
+                    </div>
+                    <div class="modal-body text-light text-start">
+                        @((MarkupString)SelectedItemText)
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick=@(e => DismissDetails())>Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    public string Id { get; set; } = string.Empty;
+
+    public string Title = "What's New in Visual Studio 2022";
+    public List<WhatsNewItemSummary>? ItemSummaries { get; set; }
+    public WhatsNewItemSummary? SelectedItem = null;
+    public string SelectedItemText = string.Empty;
+    public string SearchText = "";
+
+    private System.Timers.Timer _timer = new System.Timers.Timer(300);
+    private List<string> versions = new List<string> {"17.4", "17.5", "17.6", "17.7", "17.8", "17.9", "17.10", "17.11", "17.12" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = NavManager.ToAbsoluteUri(NavManager.Uri);
+        if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("Id", out var Id))
+        {
+            var summary = await _whatsNewApiClient.GetSummaryById(Id);
+            if (summary != null)
+            {
+                await ShowDetails(summary);
+            }
+            else
+            {
+                // Todo: Should be 404
+                await GetDefault();
+            }
+        }
+        else
+        {
+            await GetDefault();
+        }
+    }
+
+    private async Task NavigateDetails(WhatsNewItemSummary Item)
+    {
+        if(Item != null)
+        {
+           NavManager.NavigateTo($"?Id={Item.Id}", true);
+        }
+    }
+
+    private async Task ShowDetails(WhatsNewItemSummary Item)
+    {
+        SelectedItem = Item;
+        var article = await _whatsNewApiClient.GetArticle(Item.Id);
+        SelectedItemText = article.HtmlContent;
+    }
+
+    private async Task DismissDetails()
+    {
+        Id = string.Empty;
+        SelectedItem = null;
+        SelectedItemText = string.Empty;
+        NavManager.NavigateTo("/", true);
+    }
+
+    private async Task SearchText_OnChange(ChangeEventArgs e)
+    {
+        if (e != null && e.Value != null)
+        {
+            SearchText = e.Value.ToString();
+
+            _timer.Enabled = false;
+            _timer.Stop();
+            _timer = new System.Timers.Timer(300);
+            _timer.Elapsed += TimerElapsed_TickAsync;
+            _timer.Enabled = true;
+            _timer.Start();
+        }
+    }
+
+    private async Task FilterByVersion(ChangeEventArgs e)
+    {
+        if (e != null && e.Value != null)
+        {
+            var version = e.Value.ToString();
+            if (string.IsNullOrEmpty(version))
+            {
+                ItemSummaries = await _whatsNewApiClient.GetAllSummaries();
+            }
+            else
+            {
+                ItemSummaries = await _whatsNewApiClient.GetWithVersion(version);
+            }
+        }
+    }
+
+    private async void TimerElapsed_TickAsync(object sender, EventArgs e)
+    {
+        _timer.Enabled = false;
+        _timer.Stop();
+        if(string.IsNullOrEmpty(SearchText))
+        {
+            await GetDefault();
+        }
+        else
+        {
+            await SearchAsync(SearchText);
+        }
+    }
+
+    private async Task GetDefault()
+    {
+        ItemSummaries = await _whatsNewApiClient.GetAllSummaries();
+    }
+
+    private async Task SearchAsync(string Text)
+    {
+        ItemSummaries = await _whatsNewApiClient.GetSearchResults(Text);
+    }
+}
