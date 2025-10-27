@@ -21,17 +21,6 @@
                     <span class="fa fa-search form-control-feedback"></span>
                     <input type="text" value=@SearchText @oninput=@(e => SearchText_OnChange(e)) class="form-control w-100 search-box" placeholder="Search"></input>
                 </div>
-
-                <div class="form-group has-search filter-box">
-                    <span class="fa fa-search form-control-feedback"></span>
-                    <select @onchange="FilterByVersion" class="form-control">
-                        <option value="">All Version</option>
-                        @foreach (var version in versions)
-                        {
-                            <option value="@version">Visual Studio @version</option>
-                        }
-                    </select>
-                </div>
             </div>
         </div>
 
@@ -109,7 +98,6 @@
     public string SearchText = "";
 
     private System.Timers.Timer _timer = new System.Timers.Timer(300);
-    private List<string> versions = new List<string> {"17.4", "17.5", "17.6", "17.7", "17.8", "17.9", "17.10", "17.11", "17.12" };
 
     protected override async Task OnInitializedAsync()
     {
@@ -168,22 +156,6 @@
             _timer.Elapsed += TimerElapsed_TickAsync;
             _timer.Enabled = true;
             _timer.Start();
-        }
-    }
-
-    private async Task FilterByVersion(ChangeEventArgs e)
-    {
-        if (e != null && e.Value != null)
-        {
-            var version = e.Value.ToString();
-            if (string.IsNullOrEmpty(version))
-            {
-                ItemSummaries = await _whatsNewApiClient.GetAllSummaries();
-            }
-            else
-            {
-                ItemSummaries = await _whatsNewApiClient.GetWithVersion(version);
-            }
         }
     }
 
